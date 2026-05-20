@@ -1,0 +1,115 @@
+image_quality_gate:
+  blur:
+    method: laplacian_variance
+    threshold: 100.0
+    unit: variance_score
+    reject_reason: "Gambar terlalu blur, pastikan kamera stabil saat memotret"
+
+  brightness:
+    method: mean_pixel_value
+    min: 40
+    max: 220
+    unit: pixel_value_0_255
+    reject_reason_dark: "Gambar terlalu gelap, pastikan pencahayaan cukup"
+    reject_reason_over: "Gambar terlalu terang (overexposed), hindari cahaya langsung ke lensa"
+
+  occlusion:
+    method: near_black_pixel_ratio
+    near_black_value: 15
+    threshold: 0.85
+    unit: ratio_0_to_1
+    reject_reason: "Lensa kamera tertutup atau terhalang, bersihkan lensa dan coba lagi"
+
+rule_engine:
+  pole:
+    confidence:
+      min_score: 0.80
+      reject_reason: "Objek tiang (pole) tidak terdeteksi dengan jelas"
+
+    tilt:
+      method: mask_min_area_rect_angle
+      max_degrees: 5.0
+      unit: degrees
+      reject_reason: "Tiang miring melebihi batas ({value}°), batas maksimal 5°"
+
+    frame_coverage:
+      method: mask_area_ratio
+      min_coverage: 0.012
+      unit: ratio_0_to_1
+      reject_reason: "Area tiang terlalu kecil dalam frame, mundur dan ambil gambar keseluruhan tiang"
+
+    # Evaluasi fondasi sekarang mengecek eksistensi kelas 'pole_base'
+    foundation_visibility:
+      method: require_class
+      required_class: pole_base
+      reject_reason: "Fondasi tiang (pole_base) tidak terlihat, turunkan sudut kamera"
+
+  odp_box:
+    confidence:
+      min_score: 0.70
+      reject_reason: "Objek ODP (odp_box) tidak terdeteksi dengan jelas"
+
+    tilt:
+      method: mask_min_area_rect_angle
+      max_degrees: 8.0
+      unit: degrees
+      reject_reason: "ODP miring melebihi batas ({value}°), batas maksimal 8°"
+
+    frame_coverage:
+      method: mask_area_ratio
+      min_coverage: 0.005
+      unit: ratio_0_to_1
+      reject_reason: "ODP terlalu kecil dalam frame, ambil gambar dari jarak lebih dekat"
+      
+    # Placeholder untuk kelas spesifik lainnya
+    identifier:
+      method: require_class
+      required_class: odp_identifier
+      reject_reason: "Identitas ODP (odp_identifier) tidak terdeteksi"
+      
+    door_closed:
+      method: require_class
+      required_class: odp_door
+      reject_reason: "Pintu ODP (odp_door) tidak terdeteksi"
+      
+    cable:
+      method: require_class
+      required_class: odp_cable
+      reject_reason: "Kabel ODP (odp_cable) tidak terdeteksi"
+
+  pole_and_odp_box:
+    confidence:
+      min_score_each: 0.65
+      reject_reason: "Salah satu objek utama tidak terdeteksi: {missing_object}"
+
+    both_detected:
+      required: true
+      reject_reason: "Hanya {detected_object} yang terdeteksi, pastikan Pole dan ODP Box keduanya masuk frame"
+
+    pole_tilt:
+      method: mask_min_area_rect_angle
+      max_degrees: 5.0
+      unit: degrees
+      reject_reason: "Tiang miring melebihi batas ({value}°), batas maksimal 5°"
+
+    odp_box_tilt:
+      method: mask_min_area_rect_angle
+      max_degrees: 8.0
+      unit: degrees
+      reject_reason: "ODP miring melebihi batas ({value}°), batas maksimal 8°"
+
+    frame_coverage:
+      method: combined_mask_area_ratio
+      min_coverage: 0.015
+      unit: ratio_0_to_1
+      reject_reason: "Tiang dan ODP tidak cukup terlihat secara proporsional"
+
+    foundation_visibility:
+      method: require_class
+      required_class: pole_base
+      reject_reason: "Fondasi tiang (pole_base) tidak terlihat, turunkan sudut kamera"
+      
+    location_description:
+      method: require_class
+      required_class: loc_desc
+      reject_reason: "Deskripsi lokasi (loc_desc) tidak ditemukan pada gambar"

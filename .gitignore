@@ -1,0 +1,41 @@
+# Composer
+/vendor/
+composer.phar
+
+# Python Virtual Environments
+venv/
+.venv/
+env/
+ENV/
+
+# Testing (PHPUnit, etc.)
+/phpunit.xml
+.phpunit.result.cache
+/coverage/
+/tests/_output/
+/tests/Support/_generated/
+
+# Logs and Caches
+/log/
+/logs/
+*.log
+/cache/
+/tmp/
+
+# IDEs and Editors
+/.idea/
+/.vscode/
+*.swp
+*.swo
+.buildpath
+.project
+.settings
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
