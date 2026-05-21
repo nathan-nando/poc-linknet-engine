@@ -52,6 +52,7 @@ rule_engine:
     identifier:
       required: true
       reject_reason: "Identitas ODP (odp_identifier) tidak terdeteksi"
+      max_length: 15
 
     door_visible:
       required: false
@@ -60,10 +61,7 @@ rule_engine:
     cable:
       required: true
       reject_reason: "Kabel ODP (odp_cable) tidak terdeteksi"
-      
-    cable_length:
-      min_required: 5
-      reject_reason: "Kabel terpasang kurang dari batas minimum (butuh minimal 5)"
+
 
   pole_and_odp_box:
     both_detected:

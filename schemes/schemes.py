@@ -20,4 +20,5 @@ class AnalyzeResponse(BaseModel):
     status: str
     reasons: List[str]
     detections: List[DetectionResult]
-    gate_scores: dict  # tambahkan ini juga agar schema lengkap
+    gate_scores: dict
+    additional_info: dict | None = None

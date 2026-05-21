@@ -7,6 +7,8 @@ from inference.yolo_inference import YOLOEngine
 from rules.engine import RuleEngine
 from imgqualitygate.gate import run_quality_gate
 from utils.logger import setup_logger
+from services.ocr import extract_serial_number
+from services.inquiry import get_expected_cable_count
 
 logger = setup_logger("pipeline")
 
@@ -60,21 +62,52 @@ def process_image(image_bytes: bytes) -> dict:
     logger.info("Evaluating Rules...")
     final_status, reasons = rule_engine.evaluate(detections)
 
-    # 4.5. Mock ODP Cable Validation (Dummy Feature)
-    if final_status == "Accept" and "odp_box" in [d["class_name"] for d in detections]:
-        logger.info("Running dummy ODP cable validation...")
-        cable_rule = rule_engine.rules.get("odp_box", {}).get("cable_length", {})
-        min_required = cable_rule.get("min_required", 5)
+    # 4.5. OCR & Cable Inquiry Service
+    additional_info = {}
+    odp_identifier_dets = [d for d in detections if d["class_name"] == "odp_identifier"]
+    odp_box_dets = [d for d in detections if d["class_name"] == "odp_box"]
+    
+    if final_status == "Accept" and odp_box_dets and odp_identifier_dets:
+        logger.info("ODP Identifier found. Running OCR and Cable Inquiry...")
+        # Get the highest confidence identifier
+        best_id_det = max(odp_identifier_dets, key=lambda x: x["confidence"])
         
-        # TODO: Replace this with real OCR and external system query
-        # Simulated cable length returned from backend system query
-        simulated_cable_length = 4  # hardcoded to 4 to demonstrate rejection if min is 5
+        # 1. OCR
+        serial_number = extract_serial_number(img_array, best_id_det["bbox"])
         
-        logger.info(f"Simulated required cable length from system: {simulated_cable_length}. Min threshold: {min_required}")
+        # 1.5. Standardize format & Truncate OCR string
+        import re
         
-        if simulated_cable_length < min_required:
+        odp_index = serial_number.upper().find("ODP")
+        if odp_index != -1:
+            # Strip weird prefixes by slicing from 'ODP' onwards
+            serial_number = serial_number[odp_index:]
+            
+        # Normalize: Remove all spaces and keep only alphanumeric, '-' and '/'
+        serial_number = serial_number.replace(" ", "")
+        serial_number = re.sub(r'[^a-zA-Z0-9\-/]', '', serial_number)
+            
+        id_rule = rule_engine.rules.get("odp_box", {}).get("identifier", {})
+        max_len = id_rule.get("max_length")
+        
+        if max_len is not None and len(serial_number) > max_len:
+            logger.info(f"Truncating serial number from {len(serial_number)} to {max_len} characters")
+            serial_number = serial_number[:max_len]
+            
+        additional_info["serial_number"] = serial_number
+            
+        # 2. Inquiry Service
+        expected_cables = get_expected_cable_count(serial_number)
+        additional_info["expected_cables"] = expected_cables
+        
+        # 3. Compare with YOLO detected cables
+        detected_cables_count = len([d for d in detections if d["class_name"] == "odp_cable"])
+        
+        logger.info(f"YOLO detected {detected_cables_count} cables. System expects {expected_cables} cables.")
+        
+        if detected_cables_count < expected_cables:
             final_status = "Reject"
-            reasons.append(cable_rule.get("reject_reason", "Kabel terpasang kurang dari batas minimum"))
+            reasons.append(f"Kabel terpasang ({detected_cables_count}) kurang dari data sistem ({expected_cables}) untuk ODP {serial_number}")
 
     # 5. Strip field internal sebelum dikembalikan ke API
     public_detections = [_to_public_detection(d) for d in detections]
@@ -84,4 +117,5 @@ def process_image(image_bytes: bytes) -> dict:
         "reasons": reasons,
         "detections": public_detections,
         "gate_scores": gate_result["scores"],
+        "additional_info": additional_info,
     }
