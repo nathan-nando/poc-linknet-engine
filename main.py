@@ -1,5 +1,6 @@
 from fastapi import FastAPI
 from api.analyze import router as analyze_router
+from api.thresholds import router as thresholds_router
 
 app = FastAPI(
     title="YOLO Inference API",
@@ -7,6 +8,7 @@ app = FastAPI(
 )
 
 app.include_router(analyze_router)
+app.include_router(thresholds_router)
 
 
 @app.get("/")

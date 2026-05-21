@@ -1,11 +1,37 @@
 import yaml
-
+from db.database import SessionLocal
+from db.models import Threshold
 
 class RuleEngine:
     def __init__(self, config_path: str = "configs/treshold.yaml"):
-        with open(config_path, 'r') as file:
-            self.raw_config = yaml.safe_load(file)
-            self.rules = self.raw_config.get('rule_engine', {})
+        self.config_path = config_path
+        self.reload()
+        
+    def reload(self):
+        self.rules = {}
+        self.raw_config = {}
+        try:
+            # Coba load dari database
+            db = SessionLocal()
+            if db:
+                thresholds = db.query(Threshold).all()
+                self.raw_config = {"image_quality_gate": {}, "rule_engine": {}}
+                for t in thresholds:
+                    if t.category == "image_quality_gate":
+                        self.raw_config["image_quality_gate"][t.key] = t.value
+                    elif t.category in ['pole', 'odp_box', 'pole_and_odp_box']:
+                        if t.category not in self.rules:
+                            self.rules[t.category] = {}
+                        self.rules[t.category][t.key] = t.value
+                        self.raw_config["rule_engine"][t.category] = self.rules[t.category]
+                db.close()
+                if not self.rules:
+                    raise Exception("No rules in DB, falling back to YAML")
+        except Exception as e:
+            print(f"Warning: Failed to load rules from DB, falling back to YAML. Error: {e}")
+            with open(self.config_path, 'r') as file:
+                self.raw_config = yaml.safe_load(file)
+                self.rules = self.raw_config.get('rule_engine', {})
 
     def evaluate(self, detections: list) -> tuple[str, list]:
         reasons = []
@@ -70,12 +96,19 @@ class RuleEngine:
             if best_det['frame_coverage'] < cov_rule.get('min_coverage', 0.0):
                 reasons.append(cov_rule['reject_reason'])
 
-        # --- Require Class (dinamis: pole_base, odp_door, odp_cable, dll.) ---
-        for key, config in rule.items():
-            if isinstance(config, dict) and config.get('method') == 'require_class':
-                req_class = config.get('required_class')
-                if req_class not in all_detected_classes:
-                    reasons.append(config.get('reject_reason'))
+        # --- Require Class (hardcoded mapping) ---
+        class_mapping = {
+            'foundation_visibility': 'pole_base',
+            'identifier': 'odp_identifier',
+            'door_visible': 'odp_door',
+            'cable': 'odp_cable'
+        }
+        
+        for key, expected_class in class_mapping.items():
+            config = rule.get(key, {})
+            if config.get('required', False):
+                if expected_class not in all_detected_classes:
+                    reasons.append(config.get('reject_reason', f"{expected_class} is required"))
 
         return reasons
 
@@ -140,11 +173,38 @@ class RuleEngine:
                 if combined_coverage < cov_rule.get('min_coverage', 0.015):
                     reasons.append(cov_rule['reject_reason'])
 
-        # --- Require Class dinamis (pole_base, loc_desc, dll.) ---
-        for key, config in rule.items():
-            if isinstance(config, dict) and config.get('method') == 'require_class':
-                req_class = config.get('required_class')
-                if req_class not in all_detected_classes:
-                    reasons.append(config.get('reject_reason'))
+        # --- ODP Position ---
+        pos_rule = rule.get('odp_position', {})
+        if pos_rule and 'bbox' in pole_det and 'bbox' in odp_box_det:
+            pole_bbox = pole_det['bbox']
+            odp_bbox = odp_box_det['bbox']
+            
+            pole_y_min = pole_bbox.get('y1', 0)
+            pole_y_max = pole_bbox.get('y2', 1)
+            pole_height = pole_y_max - pole_y_min
+            
+            odp_y_center = (odp_bbox.get('y1', 0) + odp_bbox.get('y2', 0)) / 2
+            
+            if pole_height > 0:
+                relative_position = (odp_y_center - pole_y_min) / pole_height
+                
+                min_pos = pos_rule.get('min_position', 0.10)
+                max_pos = pos_rule.get('max_position', 0.80)
+                
+                if relative_position < min_pos or relative_position > max_pos:
+                    # Append debug context for user visibility
+                    reasons.append(pos_rule.get('reject_reason', "Posisi ODP tidak ideal") + f" (posisi saat ini: {round(relative_position * 100)}%)")
+
+        # --- Require Class (hardcoded mapping) ---
+        class_mapping = {
+            'foundation_visibility': 'pole_base',
+            'location_description': 'loc_desc'
+            # odp_position doesn't map to a simple class detection for now
+        }
+        for key, expected_class in class_mapping.items():
+            config = rule.get(key, {})
+            if config.get('required', False):
+                if expected_class not in all_detected_classes:
+                    reasons.append(config.get('reject_reason', f"{expected_class} is required"))
 
         return reasons

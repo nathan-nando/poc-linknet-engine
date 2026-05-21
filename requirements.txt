@@ -6,3 +6,5 @@ numpy
 python-multipart
 pydantic
 python-dotenv
+sqlalchemy
+psycopg2-binary
