@@ -1,5 +1,7 @@
+# schemes.py — cukup hapus 3 field dari DetectionResult
+
 from pydantic import BaseModel
-from typing import List, Optional
+from typing import List
 
 class DetectionBox(BaseModel):
     x1: float
@@ -11,12 +13,11 @@ class DetectionResult(BaseModel):
     class_name: str
     confidence: float
     bbox: DetectionBox
-    # Mocked calculated properties for rule engine evaluation
-    tilt_degrees: float = 0.0
-    frame_coverage: float = 0.0
-    foundation_visible: bool = False
+    # Hapus: tilt_degrees, frame_coverage, foundation_visible
+    # Field-field itu internal Rule Engine, bukan output API
 
 class AnalyzeResponse(BaseModel):
-    status: str  # "Accept" or "Reject"
+    status: str
     reasons: List[str]
     detections: List[DetectionResult]
+    gate_scores: dict  # tambahkan ini juga agar schema lengkap

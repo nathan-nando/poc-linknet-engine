@@ -2,57 +2,87 @@ import os
 import cv2
 from ultralytics import YOLO
 import numpy as np
-
+ 
+ 
 class YOLOEngine:
     def __init__(self, model_path: str):
         self.model = YOLO(model_path)
-
-    def predict(self, img_array: np.ndarray, img_height: int, img_width: int):
-        results = self.model(img_array)
+ 
+    def predict(self, img_array: np.ndarray, img_height: int, img_width: int) -> list:
+        # BUG FIX: tambahkan imgsz, conf, dan iou agar konsisten dengan setting training
+        # Tanpa imgsz=640, YOLO bisa pakai resolusi berbeda dari waktu training
+        results = self.model(
+            img_array,
+            imgsz=640,
+            conf=0.25,
+            iou=0.45,
+            verbose=False,  # Suppress per-inference console output
+        )
+ 
         detections = []
-        
+ 
         for result in results:
             boxes = result.boxes
             masks = result.masks
-            
+ 
             if boxes is None:
                 continue
-
+ 
             for i, box in enumerate(boxes):
                 cls_id = int(box.cls[0].item())
-                # LANGSUNG GUNAKAN NAMA CLASS DARI MODEL, TANPA MAPPING
-                cls_name = self.model.names[cls_id].lower() 
-                
+                cls_name = self.model.names[cls_id].lower()
+ 
                 conf = box.conf[0].item()
                 x1, y1, x2, y2 = box.xyxy[0].tolist()
-                
+ 
                 tilt_degrees = 0.0
                 mask_coverage = 0.0
-                
-                if masks is not None:
-                    contour = masks.xy[i]
-                    if len(contour) > 0:
+                has_mask = False
+ 
+                # Guard: pastikan index i valid dalam masks
+                if masks is not None and i < len(masks.xy):
+                    # BUG FIX: cast ke float32 untuk keamanan lintas versi OpenCV
+                    contour = masks.xy[i].astype(np.float32)
+ 
+                    # Butuh minimal 4 titik untuk minAreaRect yang bermakna
+                    if len(contour) >= 4:
+                        has_mask = True
+ 
                         rect = cv2.minAreaRect(contour)
                         angle = rect[-1]
-                        
+ 
+                        # BUG FIX KRITIS: abs() sebelum perbandingan!
+                        #
+                        # OpenCV < 4.5  → angle ∈ (-90, 0]  → tanpa abs(), angle negatif
+                        #                  maka tilt_degrees = -85° → cek "> max_degrees" SELALU False
+                        #                  → tiang miring parah tidak pernah di-reject!
+                        #
+                        # OpenCV ≥ 4.5  → angle ∈ [0, 90)   → abs() tidak mengubah apa-apa, aman
+                        #
+                        # Logika normalisasi "tilt dari sumbu dominan":
+                        # - Pole (tall, w < h): sisi pendek hampir horizontal → angle ≈ tilt dari vertikal
+                        # - ODP Box (wide, w > h): sisi pendek hampir vertikal → 90-angle ≈ tilt dari horizontal
+                        angle = abs(angle)
                         if angle > 45:
-                            tilt_degrees = 90 - angle
+                            tilt_degrees = 90.0 - angle
                         else:
                             tilt_degrees = angle
-                            
+ 
+                        # Hitung coverage menggunakan pixel-coord contour (masks.xy, bukan masks.xyn)
                         mask_area = cv2.contourArea(contour)
                         img_area = img_width * img_height
-                        mask_coverage = mask_area / img_area
-                
-                # Kita hapus foundation_visible berbasis bbox/spatial
-                # karena sekarang kita pakai class 'pole_base' di Rule Engine
-                
+                        mask_coverage = mask_area / img_area if img_area > 0 else 0.0
+ 
                 detections.append({
                     "class_name": cls_name,
                     "confidence": conf,
                     "bbox": {"x1": x1, "y1": y1, "x2": x2, "y2": y2},
-                    "tilt_degrees": tilt_degrees,
-                    "frame_coverage": mask_coverage
+                    "tilt_degrees": round(tilt_degrees, 2),
+                    "frame_coverage": round(mask_coverage, 6),
+                    # BUG FIX: tambahkan flag ini agar Rule Engine bisa skip tilt/coverage
+                    # ketika mask tidak tersedia (hindari false-reject karena default 0.0)
+                    "has_mask": has_mask,
                 })
-                
+ 
         return detections
+ 
