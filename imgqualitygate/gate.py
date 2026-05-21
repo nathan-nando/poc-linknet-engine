@@ -44,8 +44,10 @@ def run_quality_gate(image: np.ndarray, config: dict):
     )
     scores["brightness"] = brightness_result["score"]
     if not brightness_result["passed"]:
-        # Kamu bisa bikin logika if di dalam check_brightness untuk membedakan terlalu gelap/terang
-        reasons.append("Pencahayaan gambar tidak sesuai standar")
+        if brightness_result["score"] < bright_cfg.get("min", 80):
+            reasons.append(bright_cfg.get("reject_reason_dark", "Gambar terlalu gelap, pastikan pencahayaan cukup"))
+        else:
+            reasons.append(bright_cfg.get("reject_reason_over", "Gambar terlalu terang (overexposed), hindari cahaya langsung ke lensa"))
 
     # OCCLUSION
     occ_cfg = iq_config.get("occlusion", {})

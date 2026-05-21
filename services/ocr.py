@@ -24,10 +24,10 @@ def get_ocr_model():
             raise
     return _ocr_model
 
-def extract_serial_number(img_array: np.ndarray, bbox: dict) -> str:
+def extract_text_from_bbox(img_array: np.ndarray, bbox: dict) -> str | None:
     """
-    Crop the image based on bbox and run PaddleOCR to extract the serial number.
-    Fallback to a dummy string if OCR fails.
+    Crop the image based on bbox and run PaddleOCR to extract text.
+    Returns None if OCR fails or text is empty.
     """
     try:
         x1, y1, x2, y2 = int(bbox['x1']), int(bbox['y1']), int(bbox['x2']), int(bbox['y2'])
@@ -59,9 +59,21 @@ def extract_serial_number(img_array: np.ndarray, bbox: dict) -> str:
             logger.info(f"PaddleOCR successfully extracted: {text}")
             return text
         else:
-            logger.warning("PaddleOCR extracted empty string, falling back to dummy")
-            return "ODP-DUMMY-123/001"
+            logger.warning("PaddleOCR extracted empty string")
+            return None
             
     except Exception as e:
-        logger.error(f"PaddleOCR Error: {e}, falling back to dummy serial number")
-        return "ODP-PLJ-FBS/005"
+        logger.error(f"PaddleOCR Error: {e}")
+        return None
+
+def extract_serial_number(img_array: np.ndarray, bbox: dict) -> str:
+    """
+    Crop the image based on bbox and run PaddleOCR to extract the serial number.
+    Fallback to a dummy string if OCR fails.
+    """
+    text = extract_text_from_bbox(img_array, bbox)
+    if text:
+        return text
+    else:
+        logger.warning("Falling back to dummy serial number")
+        return "ODP-DUMMY-123/001"

@@ -7,7 +7,7 @@ from inference.yolo_inference import YOLOEngine
 from rules.engine import RuleEngine
 from imgqualitygate.gate import run_quality_gate
 from utils.logger import setup_logger
-from services.ocr import extract_serial_number
+from services.ocr import extract_serial_number, extract_text_from_bbox
 from services.inquiry import get_expected_cable_count
 
 logger = setup_logger("pipeline")
@@ -64,6 +64,17 @@ def process_image(image_bytes: bytes) -> dict:
 
     # 4.5. OCR & Cable Inquiry Service
     additional_info = {}
+    
+    # Extract Location Description if the bounding box is detected
+    loc_desc_dets = [d for d in detections if d["class_name"] in ("loc_desc", "location_description")]
+    if loc_desc_dets:
+        # User requested: if there are multiple loc_desc boxes, pick the rightmost one (highest x1)
+        best_loc_det = max(loc_desc_dets, key=lambda x: x["bbox"]["x1"])
+        loc_text = extract_text_from_bbox(img_array, best_loc_det["bbox"])
+        if loc_text:
+            logger.info(f"Location description OCR extracted: {loc_text}")
+            additional_info["location_description"] = loc_text
+
     odp_identifier_dets = [d for d in detections if d["class_name"] == "odp_identifier"]
     odp_box_dets = [d for d in detections if d["class_name"] == "odp_box"]
     
@@ -107,7 +118,13 @@ def process_image(image_bytes: bytes) -> dict:
         
         if detected_cables_count < expected_cables:
             final_status = "Reject"
-            reasons.append(f"Kabel terpasang ({detected_cables_count}) kurang dari data sistem ({expected_cables}) untuk ODP {serial_number}")
+            cable_mismatch_rule = rule_engine.rules.get("odp_box", {}).get("cable_mismatch", {})
+            mismatch_reason = cable_mismatch_rule.get("reject_reason", "Kabel terpasang ({detected_cables_count}) kurang dari data sistem ({expected_cables}) untuk ODP {serial_number}")
+            reasons.append(mismatch_reason.format(
+                detected_cables_count=detected_cables_count,
+                expected_cables=expected_cables,
+                serial_number=serial_number
+            ))
 
     # 5. Strip field internal sebelum dikembalikan ke API
     public_detections = [_to_public_detection(d) for d in detections]

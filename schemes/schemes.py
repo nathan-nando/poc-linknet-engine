@@ -22,3 +22,4 @@ class AnalyzeResponse(BaseModel):
     detections: List[DetectionResult]
     gate_scores: dict
     additional_info: dict | None = None
+    processing_time_ms: float | None = None
