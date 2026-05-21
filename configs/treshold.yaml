@@ -132,3 +132,5 @@ rule_engine:
       method: require_class
       required_class: loc_desc
       reject_reason: "Deskripsi lokasi (loc_desc) tidak ditemukan pada gambar"
+
+    odp_position: 
