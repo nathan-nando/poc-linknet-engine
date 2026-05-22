@@ -40,6 +40,9 @@ RUN mkdir -p /home/appuser/.paddleocr
 # Copy the rest of the application
 COPY --chown=appuser:appuser . .
 
+# Export ONNX model during build time so it is ready on container startup
+RUN python scripts/export_onnx.py
+
 # Expose port
 EXPOSE 8000
 
