@@ -20,6 +20,10 @@ logs:
 migrate:
 	docker-compose exec engine python scripts/migrate_thresholds.py
 
+# Export YOLO model to ONNX format (for CI/CD or manual optimization)
+export-onnx:
+	docker-compose exec engine python scripts/export_onnx.py
+
 # Restart engine services
 restart:
 	docker-compose restart

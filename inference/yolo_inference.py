@@ -6,9 +6,34 @@ import numpy as np
  
 class YOLOEngine:
     def __init__(self, model_path: str):
-        self.model = YOLO(model_path)
+        import logging
+        self.logger = logging.getLogger("pipeline")
+        
+        # Check if ONNX optimized model exists
+        onnx_path = model_path.replace('.pt', '.onnx')
+        if os.path.exists(onnx_path):
+            self.logger.info(f"Detected ONNX model. Loading {onnx_path} for optimized GPU inference.")
+            self.model = YOLO(onnx_path, task='segment')
+            self.model_type = "ONNX"
+        else:
+            self.logger.info(f"ONNX model not found. Falling back to PyTorch model: {model_path}")
+            self.model = YOLO(model_path)
+            self.model_type = "PyTorch (.pt)"
+
+    def warmup(self):
+        """Perform a dummy inference to warmup ONNX Runtime and CUDA pipelines."""
+        import logging
+        logger = logging.getLogger("pipeline")
+        logger.info(f"Warming up YOLO GPU pipeline using {self.model_type}...")
+        # Create a dummy black image
+        dummy_img = np.zeros((640, 640, 3), dtype=np.uint8)
+        # Suppress verbose output for warmup
+        self.model(dummy_img, imgsz=640, verbose=False)
+        logger.info(f"YOLO GPU warmup ({self.model_type}) complete.")
  
     def predict(self, img_array: np.ndarray, img_height: int, img_width: int) -> list:
+        self.logger.info(f"YOLOEngine performing inference using: {self.model_type}")
+        
         # BUG FIX: tambahkan imgsz, conf, dan iou agar konsisten dengan setting training
         # Tanpa imgsz=640, YOLO bisa pakai resolusi berbeda dari waktu training
         results = self.model(

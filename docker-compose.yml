@@ -29,7 +29,23 @@ services:
         condition: service_healthy
     environment:
       - DATABASE_URL=postgresql://user:password@db:5432/linknet
+    volumes:
+      - paddleocr_data:/home/appuser/.paddleocr
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
 
 volumes:
   postgres_data:
+  paddleocr_data:

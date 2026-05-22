@@ -86,45 +86,56 @@ def process_image(image_bytes: bytes) -> dict:
         # 1. OCR
         serial_number = extract_serial_number(img_array, best_id_det["bbox"])
         
-        # 1.5. Standardize format & Truncate OCR string
-        import re
-        
-        odp_index = serial_number.upper().find("ODP")
-        if odp_index != -1:
-            # Strip weird prefixes by slicing from 'ODP' onwards
-            serial_number = serial_number[odp_index:]
-            
-        # Normalize: Remove all spaces and keep only alphanumeric, '-' and '/'
-        serial_number = serial_number.replace(" ", "")
-        serial_number = re.sub(r'[^a-zA-Z0-9\-/]', '', serial_number)
-            
         id_rule = rule_engine.rules.get("odp_box", {}).get("identifier", {})
-        max_len = id_rule.get("max_length")
         
-        if max_len is not None and len(serial_number) > max_len:
-            logger.info(f"Truncating serial number from {len(serial_number)} to {max_len} characters")
-            serial_number = serial_number[:max_len]
+        if not serial_number:
+            # OCR failed or returned empty string
+            if id_rule.get("required", False):
+                final_status = "Reject"
+                # Avoid duplicate reasons if somehow already added
+                reason = id_rule.get("reject_reason", "Identitas ODP (odp_identifier) tidak terdeteksi")
+                if reason not in reasons:
+                    reasons.append(reason)
+            # Skip cable inquiry since we don't have an identifier
+        else:
+            # 1.5. Standardize format & Truncate OCR string
+            import re
             
-        additional_info["serial_number"] = serial_number
+            odp_index = serial_number.upper().find("ODP")
+            if odp_index != -1:
+                # Strip weird prefixes by slicing from 'ODP' onwards
+                serial_number = serial_number[odp_index:]
+                
+            # Normalize: Remove all spaces and keep only alphanumeric, '-' and '/'
+            serial_number = serial_number.replace(" ", "")
+            serial_number = re.sub(r'[^a-zA-Z0-9\-/]', '', serial_number)
+                
+            max_len = id_rule.get("max_length")
             
-        # 2. Inquiry Service
-        expected_cables = get_expected_cable_count(serial_number)
-        additional_info["expected_cables"] = expected_cables
-        
-        # 3. Compare with YOLO detected cables
-        detected_cables_count = len([d for d in detections if d["class_name"] == "odp_cable"])
-        
-        logger.info(f"YOLO detected {detected_cables_count} cables. System expects {expected_cables} cables.")
-        
-        if detected_cables_count < expected_cables:
-            final_status = "Reject"
-            cable_mismatch_rule = rule_engine.rules.get("odp_box", {}).get("cable_mismatch", {})
-            mismatch_reason = cable_mismatch_rule.get("reject_reason", "Kabel terpasang ({detected_cables_count}) kurang dari data sistem ({expected_cables}) untuk ODP {serial_number}")
-            reasons.append(mismatch_reason.format(
-                detected_cables_count=detected_cables_count,
-                expected_cables=expected_cables,
-                serial_number=serial_number
-            ))
+            if max_len is not None and len(serial_number) > max_len:
+                logger.info(f"Truncating serial number from {len(serial_number)} to {max_len} characters")
+                serial_number = serial_number[:max_len]
+                
+            additional_info["serial_number"] = serial_number
+                
+            # 2. Inquiry Service
+            expected_cables = get_expected_cable_count(serial_number)
+            additional_info["expected_cables"] = expected_cables
+            
+            # 3. Compare with YOLO detected cables
+            detected_cables_count = len([d for d in detections if d["class_name"] == "odp_cable"])
+            
+            logger.info(f"YOLO detected {detected_cables_count} cables. System expects {expected_cables} cables.")
+            
+            if detected_cables_count < expected_cables:
+                final_status = "Reject"
+                cable_mismatch_rule = rule_engine.rules.get("odp_box", {}).get("cable_mismatch", {})
+                mismatch_reason = cable_mismatch_rule.get("reject_reason", "Kabel terpasang ({detected_cables_count}) kurang dari data sistem ({expected_cables}) untuk ODP {serial_number}")
+                reasons.append(mismatch_reason.format(
+                    detected_cables_count=detected_cables_count,
+                    expected_cables=expected_cables,
+                    serial_number=serial_number
+                ))
 
     # 5. Strip field internal sebelum dikembalikan ke API
     public_detections = [_to_public_detection(d) for d in detections]

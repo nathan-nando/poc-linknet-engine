@@ -13,7 +13,7 @@ def get_ocr_model():
         try:
             from paddleocr import PaddleOCR
             import logging
-            logging.getLogger("ppocr").setLevel(logging.ERROR) # Suppress paddle logs
+            logging.getLogger("ppocr").setLevel(logging.ERROR)
             _ocr_model = PaddleOCR(use_angle_cls=True, lang='en', show_log=False)
             logger.info("PaddleOCR model loaded successfully.")
         except ImportError:
@@ -23,6 +23,14 @@ def get_ocr_model():
             logger.error(f"Failed to load PaddleOCR: {e}")
             raise
     return _ocr_model
+
+def warmup():
+    """Force model download and warmup CUDA pipeline with a dummy image."""
+    logger.info("Warming up PaddleOCR pipeline...")
+    ocr_model = get_ocr_model()
+    dummy_img = np.zeros((100, 300, 3), dtype=np.uint8)
+    ocr_model.ocr(dummy_img, cls=True)
+    logger.info("PaddleOCR warmup complete.")
 
 def extract_text_from_bbox(img_array: np.ndarray, bbox: dict) -> str | None:
     """
@@ -69,11 +77,11 @@ def extract_text_from_bbox(img_array: np.ndarray, bbox: dict) -> str | None:
 def extract_serial_number(img_array: np.ndarray, bbox: dict) -> str:
     """
     Crop the image based on bbox and run PaddleOCR to extract the serial number.
-    Fallback to a dummy string if OCR fails.
+    Returns an empty string if OCR fails.
     """
     text = extract_text_from_bbox(img_array, bbox)
     if text:
         return text
     else:
-        logger.warning("Falling back to dummy serial number")
-        return "ODP-DUMMY-123/001"
+        logger.warning("OCR failed or empty, returning empty string instead of fallback")
+        return ""
