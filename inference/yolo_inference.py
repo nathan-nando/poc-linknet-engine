@@ -26,21 +26,21 @@ class YOLOEngine:
         logger = logging.getLogger("pipeline")
         logger.info(f"Warming up YOLO GPU pipeline using {self.model_type}...")
         # Create a dummy black image
-        dummy_img = np.zeros((640, 640, 3), dtype=np.uint8)
+        dummy_img = np.zeros((832, 832, 3), dtype=np.uint8)
         # Suppress verbose output for warmup
-        self.model(dummy_img, imgsz=640, verbose=False)
+        self.model(dummy_img, imgsz=832, verbose=False)
         logger.info(f"YOLO GPU warmup ({self.model_type}) complete.")
  
     def predict(self, img_array: np.ndarray, img_height: int, img_width: int) -> list:
         self.logger.info(f"YOLOEngine performing inference using: {self.model_type}")
         
         # BUG FIX: tambahkan imgsz, conf, dan iou agar konsisten dengan setting training
-        # Tanpa imgsz=640, YOLO bisa pakai resolusi berbeda dari waktu training
+        # Tanpa imgsz=832, YOLO bisa pakai resolusi berbeda dari waktu training
         results = self.model(
             img_array,
-            imgsz=640,
+            imgsz=832,
             conf=0.25,
-            iou=0.45,
+            iou=0.6,
             verbose=False,  # Suppress per-inference console output
         )
  
