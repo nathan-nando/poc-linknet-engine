@@ -63,6 +63,9 @@ def get_top_classes(limit: int = 5, start_date: Optional[str] = None, end_date: 
     grouped = {}
     for d in decisions:
         cls = d.classification or "unknown"
+        if cls.lower() == "other":
+            continue
+            
         if cls not in grouped:
             grouped[cls] = {"total": 0, "accept": 0, "reject": 0}
             
