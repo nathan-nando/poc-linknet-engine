@@ -31,6 +31,7 @@ services:
       - DATABASE_URL=postgresql://user:password@db:5432/linknet
     volumes:
       - paddleocr_data:/home/appuser/.paddleocr
+      - engine_storage:/app/storage
     deploy:
       resources:
         reservations:
@@ -49,3 +50,4 @@ services:
 volumes:
   postgres_data:
   paddleocr_data:
+  engine_storage:

@@ -17,7 +17,8 @@ def main():
     # Export to ONNX
     # half=True: Uses FP16 precision for faster inference
     # dynamic=False, simplify=False: Mencegah OOM (Error 137) di memori lokal (WSL)
-    model.export(format="onnx", half=True, dynamic=False, simplify=False)
+    # imgsz=832: Cocokkan dengan resolusi training agar akurasi tetap tinggi
+    model.export(format="onnx", half=True, dynamic=False, simplify=False, imgsz=832)
     
     onnx_path = model_path.replace(".pt", ".onnx")
     if os.path.exists(onnx_path):
