@@ -87,14 +87,6 @@ class RuleEngine:
                 )
                 reasons.append(msg)
 
-        # --- Frame Coverage ---
-        # BUG FIX: sama seperti tilt, hanya evaluasi jika mask tersedia.
-        # frame_coverage=0.0 (default saat no-mask) akan selalu < min_coverage
-        # dan menyebabkan false-reject untuk kelas-kelas accessory.
-        cov_rule = rule.get('frame_coverage', {})
-        if cov_rule and best_det.get('has_mask', False):
-            if best_det['frame_coverage'] < cov_rule.get('min_coverage', 0.0):
-                reasons.append(cov_rule['reject_reason'])
 
         # --- Require Class (hardcoded mapping) ---
         class_mapping = {
@@ -163,15 +155,6 @@ class RuleEngine:
                     )
                 )
 
-        # --- Combined Frame Coverage (dengan has_mask guard) ---
-        cov_rule = rule.get('frame_coverage', {})
-        if cov_rule:
-            pole_has_mask = pole_det.get('has_mask', False)
-            odp_has_mask = odp_box_det.get('has_mask', False)
-            if pole_has_mask and odp_has_mask:
-                combined_coverage = pole_det['frame_coverage'] + odp_box_det['frame_coverage']
-                if combined_coverage < cov_rule.get('min_coverage', 0.015):
-                    reasons.append(cov_rule['reject_reason'])
 
         # --- ODP Position ---
         pos_rule = rule.get('odp_position', {})

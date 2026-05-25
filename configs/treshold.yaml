@@ -28,9 +28,6 @@ rule_engine:
       max_degrees: 5.0
       reject_reason: "Tiang miring melebihi batas ({value}°), batas maksimal 5°"
 
-    frame_coverage:
-      min_coverage: 0.012
-      reject_reason: "Area tiang terlalu kecil dalam frame, mundur dan ambil gambar keseluruhan tiang"
 
     foundation_visibility:
       required: true
@@ -45,9 +42,6 @@ rule_engine:
       max_degrees: 8.0
       reject_reason: "ODP miring melebihi batas ({value}°), batas maksimal 8°"
 
-    frame_coverage:
-      min_coverage: 0.005
-      reject_reason: "ODP terlalu kecil dalam frame, ambil gambar dari jarak lebih dekat"
 
     identifier:
       required: true
@@ -82,9 +76,6 @@ rule_engine:
       max_degrees: 8.0
       reject_reason: "ODP Box tampak miring ({value}°). Pastikan terpasang rata pada tiang"
 
-    frame_coverage:
-      min_coverage: 0.015
-      reject_reason: "Tiang dan ODP terlalu jauh/kecil. Silakan ambil gambar lebih dekat"
 
     odp_position:
       min_position: 0.10

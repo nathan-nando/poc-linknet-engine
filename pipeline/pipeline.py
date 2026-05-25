@@ -86,25 +86,29 @@ def process_image(image_bytes: bytes) -> dict:
         # 1. OCR
         serial_number = extract_serial_number(img_array, best_id_det["bbox"])
         
+        # 1.5 Standardize format & require 'ODP' prefix
+        if serial_number:
+            odp_index = serial_number.upper().find("ODP")
+            if odp_index == -1:
+                # Jika hasil OCR tidak mengandung kata "ODP", anggap identifier tidak ada
+                serial_number = ""
+            else:
+                # Strip weird prefixes by slicing from 'ODP' onwards
+                serial_number = serial_number[odp_index:]
+        
         id_rule = rule_engine.rules.get("odp_box", {}).get("identifier", {})
         
         if not serial_number:
-            # OCR failed or returned empty string
+            # OCR failed, returned empty string, or didn't contain "ODP"
             if id_rule.get("required", False):
                 final_status = "Reject"
                 # Avoid duplicate reasons if somehow already added
-                reason = id_rule.get("reject_reason", "Identitas ODP (odp_identifier) tidak terdeteksi")
+                reason = id_rule.get("reject_reason", "Identitas ODP (odp_identifier) tidak terdeteksi atau tidak valid")
                 if reason not in reasons:
                     reasons.append(reason)
             # Skip cable inquiry since we don't have an identifier
         else:
-            # 1.5. Standardize format & Truncate OCR string
             import re
-            
-            odp_index = serial_number.upper().find("ODP")
-            if odp_index != -1:
-                # Strip weird prefixes by slicing from 'ODP' onwards
-                serial_number = serial_number[odp_index:]
                 
             # Normalize: Remove all spaces and keep only alphanumeric, '-' and '/'
             serial_number = serial_number.replace(" ", "")
