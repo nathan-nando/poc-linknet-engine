@@ -28,6 +28,6 @@ export-onnx:
 restart:
 	docker-compose restart
 
-# Clear all reporting data from database
-clear-reports:
-	docker-compose exec engine python scripts/clear_reports.py
+# Clear all log decisions data from database
+clear-logs:
+	docker-compose exec engine python scripts/clear_logs.py

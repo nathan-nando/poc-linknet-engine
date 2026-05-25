@@ -29,7 +29,7 @@ async def analyze_endpoint(file: UploadFile = File(...)):
         import os
         import uuid
         from db.database import SessionLocal
-        from db.models import Report
+        from db.models import LogDecision
         
         # Ensure dir exists
         os.makedirs("/app/storage/images", exist_ok=True)
@@ -40,18 +40,36 @@ async def analyze_endpoint(file: UploadFile = File(...)):
         with open(image_path, "wb") as f:
             f.write(image_bytes)
             
+        # Determine classification
+        class_counts = {}
+        for det in result["detections"]:
+            cls = det["class_name"]
+            class_counts[cls] = class_counts.get(cls, 0) + 1
+            
+        if "pole" in class_counts and "odp_box" in class_counts:
+            classification = "pole_and_odp_box"
+        elif "odp_box" in class_counts:
+            classification = "odp_box"
+        elif "pole" in class_counts:
+            classification = "pole"
+        elif "image_quality_gate" in result["reasons"] or "blur" in result.get("reasons", ""):
+            classification = "rejected_quality"
+        else:
+            classification = "other"
+
         # Insert to DB
         db = SessionLocal()
         try:
-            report = Report(
+            log_decision = LogDecision(
                 filename=file.filename,
                 status=result["status"],
+                classification=classification,
                 reasons=result["reasons"],
                 detections=result["detections"], # It is already a list of dicts
                 processing_time_ms=processing_time_ms,
                 image_path=unique_filename # we only store the filename part for the URL
             )
-            db.add(report)
+            db.add(log_decision)
             db.commit()
         except Exception as e_db:
             logger.error(f"Error saving to DB: {e_db}")

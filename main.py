@@ -2,7 +2,8 @@ from fastapi import FastAPI
 from contextlib import asynccontextmanager
 from api.analyze import router as analyze_router
 from api.thresholds import router as thresholds_router
-from api.reports import router as reports_router
+from api.log_decisions import router as log_decisions_router
+from api.analytics import router as analytics_router
 from pipeline.pipeline import yolo_engine
 from services import ocr
 from utils.logger import setup_logger
@@ -50,7 +51,8 @@ app.mount("/images", StaticFiles(directory="/app/storage/images"), name="images"
 
 app.include_router(analyze_router)
 app.include_router(thresholds_router)
-app.include_router(reports_router)
+app.include_router(log_decisions_router)
+app.include_router(analytics_router)
 
 @app.get("/")
 def root():

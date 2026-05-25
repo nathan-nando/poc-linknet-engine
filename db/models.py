@@ -21,12 +21,13 @@ class Threshold(Base):
             "value": self.value
         }
 
-class Report(Base):
-    __tablename__ = "reports"
+class LogDecision(Base):
+    __tablename__ = "log_decisions"
 
     id = Column(Integer, primary_key=True, index=True)
     filename = Column(String, index=True)
     status = Column(String)
+    classification = Column(String, index=True)
     reasons = Column(JSON)
     detections = Column(JSON)
     processing_time_ms = Column(Float)
@@ -42,6 +43,7 @@ class Report(Base):
             "id": self.id,
             "filename": self.filename,
             "status": self.status,
+            "classification": self.classification,
             "reasons": self.reasons,
             "detections": self.detections,
             "processing_time_ms": self.processing_time_ms,

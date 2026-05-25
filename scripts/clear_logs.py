@@ -5,19 +5,19 @@ import os
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from db.database import SessionLocal
-from db.models import Report
+from db.models import LogDecision
 
-def clear_reports():
+def clear_logs():
     db = SessionLocal()
     try:
-        count = db.query(Report).delete()
+        count = db.query(LogDecision).delete()
         db.commit()
-        print(f"Successfully deleted {count} records from reports table.")
+        print(f"Successfully deleted {count} records from log_decisions table.")
     except Exception as e:
-        print(f"Error deleting reports: {e}")
+        print(f"Error deleting logs: {e}")
         db.rollback()
     finally:
         db.close()
 
 if __name__ == "__main__":
-    clear_reports()
+    clear_logs()
