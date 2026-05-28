@@ -1,3 +1,4 @@
+name: infravision-engine
 services:
   infravision-postgres:
     image: postgres:15
