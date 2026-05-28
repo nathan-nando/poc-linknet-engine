@@ -18,11 +18,11 @@ logs:
 
 # Run the YAML to DB migration script inside the engine container
 migrate:
-	docker-compose exec engine python scripts/migrate_thresholds.py
+	docker-compose exec infravision-engine python scripts/migrate_thresholds.py
 
 # Export YOLO model to ONNX format (for CI/CD or manual optimization)
 export-onnx:
-	docker-compose exec engine python scripts/export_onnx.py
+	docker-compose exec infravision-engine python scripts/export_onnx.py
 
 # Restart engine services
 restart:
@@ -30,4 +30,4 @@ restart:
 
 # Clear all log decisions data from database
 clear-logs:
-	docker-compose exec engine python scripts/clear_logs.py
+	docker-compose exec infravision-engine python scripts/clear_logs.py

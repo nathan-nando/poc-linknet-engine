@@ -1,7 +1,7 @@
 services:
-  db:
+  infravision-postgres:
     image: postgres:15
-    container_name: linknet-postgres
+    container_name: infravision-postgres
     environment:
       POSTGRES_USER: user
       POSTGRES_PASSWORD: password
@@ -17,18 +17,18 @@ services:
       timeout: 5s
       retries: 5
 
-  engine:
+  infravision-engine:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: linknet-engine
+    container_name: infravision-engine
     ports:
       - "8000:8000"
     depends_on:
-      db:
+      infravision-postgres:
         condition: service_healthy
     environment:
-      - DATABASE_URL=postgresql://user:password@db:5432/linknet
+      - DATABASE_URL=postgresql://user:password@infravision-postgres:5432/linknet
     volumes:
       - paddleocr_data:/home/appuser/.paddleocr
       - engine_storage:/app/storage
